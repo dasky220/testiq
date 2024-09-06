@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test IQ</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: auto;
+        }
+        .question {
+            margin-bottom: 20px;
+            position: relative; /* Umożliwia ustawienie absolutne przycisku */
+        }
+        .question h3 {
+            margin: 0;
+        }
+        .question .timer {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+        }
+        .question .answers {
+            list-style-type: none;
+            padding: 0;
+        }
+        .question .answers li {
+            margin-bottom: 10px;
+        }
+        #submit-answer {
+        
+            bottom: 0;
+            left: 0;
+            width: 50%;
+        }
+        .result {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test IQ</h1>
+        <div id="quiz">
+            <!-- Pytania będą tutaj wstawiane przez JavaScript -->
+        </div>
+        <div class="result" id="result">
+            <h2>Wynik</h2>
+            <p id="score"></p>
+        </div>
+    </div>
+    <script>
+        // Lista pytań
+        const questions = [
+            { id: 1, level: 1, type: 'multiple', question: "Co to jest 2 + 2?", answers: ["3", "4", "5"], correct: 1 },
+            { id: 2, level: 1, type: 'multiple', question: "Co to jest 3 + 5?", answers: ["7", "8", "9"], correct: 1 },
+            { id: 3, level: 2, type: 'truefalse', question: "2 + 2 = 4? (Prawda/Fałsz)", correct: true },
+            { id: 4, level: 2, type: 'multiple', question: "Jaki jest wynik 12 * 12?", answers: ["144", "156", "168"], correct: 0 },
+            { id: 5, level: 3, type: 'fillblank', question: "Uzupełnij: 3x - 7 = 11, x = ?", correct: "6" },
+            { id: 6, level: 3, type: 'truefalse', question: "5 * 5 = 25? (Prawda/Fałsz)", correct: true },
+            { id: 7, level: 1, type: 'multiple', question: "Która liczba jest pierwiastkiem kwadratowym 49?", answers: ["5", "6", "7"], correct: 2 },
+            { id: 8, level: 2, type: 'multiple', question: "Jaki jest wynik 25 / (5 + 5)?", answers: ["2.5", "5", "10"], correct: 0 },
+            { id: 9, level: 3, type: 'fillblank', question: "Uzupełnij: 9 - 3 = ?", correct: "6" },
+            { id: 10, level: 3, type: 'truefalse', question: "12 / 4 = 3? (Prawda/Fałsz)", correct: false }
+        ];
+
+        let questionIndex = 0;
+        let score = 0;
+        let timer;
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function displayQuestion() {
+            // Sprawdzenie i czyszczenie poprzedniego timera
+            if (timer) {
+                clearInterval(timer);
+            }
+
+            const question = questions[questionIndex];
+            const questionContainer = document.createElement('div');
+            questionContainer.classList.add('question');
+            
+            // Ustawienie czasu odpowiedzi
+            const timeLimit = question.level === 1 ? 60 : (question.level === 2 ? 80 : 120);
+            let timeRemaining = timeLimit;
+
+            // Tworzenie treści pytania na podstawie jego typu
+            let questionContent = '';
+            if (question.type === 'multiple') {
+                questionContent = `
+                    <h3>Pytanie ${questionIndex + 1} (${question.level} gwiazdek)</h3>
+                    <div class="timer">Czas pozostały: <span id="timer">${timeRemaining}</span> sek.</div>
+                    <p>${question.question}</p>
+                    <ul class="answers">
+                        ${question.answers.map((answer, index) => `
+                            <li><input type="radio" name="answer" value="${index}" id="answer${index}">
+                            <label for="answer${index}">${answer}</label></li>
+                        `).join('')}
+                    </ul>
+                `;
+            } else if (question.type === 'truefalse') {
+                questionContent = `
+                    <h3>Pytanie ${questionIndex + 1} (${question.level} gwiazdek)</h3>
+                    <div class="timer">Czas pozostały: <span id="timer">${timeRemaining}</span> sek.</div>
+                    <p>${question.question}</p>
+                    <ul class="answers">
+                        <li><input type="radio" name="answer" value="true" id="true">
+                        <label for="true">Prawda</label></li>
+                        <li><input type="radio" name="answer" value="false" id="false">
+                        <label for="false">Fałsz</label></li>
+                    </ul>
+                `;
+            } else if (question.type === 'fillblank') {
+                questionContent = `
+                    <h3>Pytanie ${questionIndex + 1} (${question.level} gwiazdek)</h3>
+                    <div class="timer">Czas pozostały: <span id="timer">${timeRemaining}</span> sek.</div>
+                    <p>${question.question}</p>
+                    <input type="text" id="fill-blank-answer">
+                `;
+            }
+
+            questionContainer.innerHTML = `
+                ${questionContent}
+                <button id="submit-answer">Zatwierdź odpowiedź</button>
+            `;
+
+            document.getElementById('quiz').innerHTML = '';
+            document.getElementById('quiz').appendChild(questionContainer);
+
+            // Funkcja odliczająca czas
+            timer = setInterval(() => {
+                timeRemaining--;
+                document.getElementById('timer').textContent = timeRemaining;
+                if (timeRemaining <= 0) {
+                    clearInterval(timer);
+                    handleSubmit(); // Przejdź do następnego pytania, gdy czas minie
+                }
+            }, 1000);
+        }
+
+        function handleSubmit() {
+            const question = questions[questionIndex];
+            let selectedAnswer;
+            if (question.type === 'multiple') {
+                selectedAnswer = document.querySelector('input[name="answer"]:checked');
+                if (selectedAnswer && parseInt(selectedAnswer.value) === question.correct) {
+                    score += question.level;
+                }
+            } else if (question.type === 'truefalse') {
+                selectedAnswer = document.querySelector('input[name="answer"]:checked');
+                if (selectedAnswer && selectedAnswer.value === (question.correct ? 'true' : 'false')) {
+                    score += question.level;
+                }
+            } else if (question.type === 'fillblank') {
+                selectedAnswer = document.getElementById('fill-blank-answer').value.trim();
+                if (selectedAnswer === question.correct) {
+                    score += question.level;
+                }
+            }
+
+            questionIndex++;
+
+            if (questionIndex < questions.length) {
+                displayQuestion();
+            } else {
+                showResult();
+            }
+        }
+
+        function showResult() {
+            document.getElementById('quiz').style.display = 'none';
+            document.getElementById('result').style.display = 'block';
+            document.getElementById('score').textContent = `Twój wynik to ${score} punktów.`;
+        }
+
+        // Funkcja losująca pytania i rozpoczynająca test
+        function startQuiz() {
+            // Losowanie pytań
+            shuffle(questions);
+            questions.length = 10; // Ustaw liczbę pytań
+            displayQuestion();
+        }
+
+        startQuiz();
+        
+        // Dodaj nasłuchiwacz zdarzeń dla przycisku zatwierdzenia
+        document.getElementById('quiz').addEventListener('click', function(event) {
+            if (event.target && event.target.id === 'submit-answer') {
+                handleSubmit();
+            }
+        });
+    </script>
+</body>
+</html>
